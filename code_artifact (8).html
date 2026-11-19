@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心靈島的漂流：全球心理衛生大富翁</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+        }
+        .tile {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        /* Perimeter placement mapping for 16 tiles in a 5x5 grid */
+        .tile-0 { grid-area: 1 / 1 / 2 / 2; }
+        .tile-1 { grid-area: 1 / 2 / 2 / 3; }
+        .tile-2 { grid-area: 1 / 3 / 2 / 4; }
+        .tile-3 { grid-area: 1 / 4 / 2 / 5; }
+        .tile-4 { grid-area: 1 / 5 / 2 / 6; }
+        .tile-5 { grid-area: 2 / 5 / 3 / 6; }
+        .tile-6 { grid-area: 3 / 5 / 4 / 6; }
+        .tile-7 { grid-area: 4 / 5 / 5 / 6; }
+        .tile-8 { grid-area: 5 / 5 / 6 / 6; }
+        .tile-9 { grid-area: 5 / 4 / 6 / 5; }
+        .tile-10 { grid-area: 5 / 3 / 6 / 4; }
+        .tile-11 { grid-area: 5 / 2 / 6 / 3; }
+        .tile-12 { grid-area: 5 / 1 / 6 / 2; }
+        .tile-13 { grid-area: 4 / 1 / 5 / 2; }
+        .tile-14 { grid-area: 3 / 1 / 4 / 2; }
+        .tile-15 { grid-area: 2 / 1 / 3 / 2; }
+
+        .player-token {
+            position: absolute;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: bounce 1s infinite alternate;
+            z-index: 10;
+        }
+        .token-1 { background: #ef4444; top: -10px; right: -10px; }
+        .token-2 { background: #3b82f6; top: -10px; left: -10px; animation-delay: 0.2s; }
+        .token-3 { background: #10b981; bottom: -10px; right: -10px; animation-delay: 0.4s; }
+        .token-4 { background: #f59e0b; bottom: -10px; left: -10px; animation-delay: 0.6s; }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .hidden-screen { display: none !important; }
+        
+        /* Modal Backdrop */
+        #modal-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl md:text-2xl font-bold">🧠 全球心理衛生大富翁</h1>
+        <div id="turn-counter" class="text-sm font-semibold hidden">第 <span id="round-num">1</span> 回合</div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-8">
+        
+        <!-- Screen 1: Role Selection -->
+        <div id="screen-role-select" class="max-w-4xl mx-auto flex flex-col items-center fade-in">
+            <h2 class="text-2xl font-bold mb-2 text-center">單機多人對戰：加入玩家</h2>
+            <p class="text-gray-600 mb-6 text-center">請依序為每位玩家選擇角色（最多 4 人），選完後點擊「開始遊戲」。</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8" id="role-cards">
+                <!-- Role 1 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition" onclick="joinPlayer('migrant')">
+                    <div class="text-4xl mb-4 text-center">🌍</div>
+                    <h3 class="text-xl font-bold text-center mb-2">跨國移工 / 難民</h3>
+                    <ul class="text-sm text-gray-600 space-y-2 mb-4">
+                        <li><strong>初始 MWP:</strong> 50</li>
+                        <li><strong>防護罩:</strong> 1</li>
+                        <li class="text-red-500"><strong>弱勢:</strong> 醫療資源補血減半</li>
+                    </ul>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-2 rounded-lg pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 2 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition" onclick="joinPlayer('manager')">
+                    <div class="text-4xl mb-4 text-center">💻</div>
+                    <h3 class="text-xl font-bold text-center mb-2">高壓科技業主管</h3>
+                    <ul class="text-sm text-gray-600 space-y-2 mb-4">
+                        <li><strong>初始 MWP:</strong> 50</li>
+                        <li><strong>防護罩:</strong> 0</li>
+                        <li class="text-red-500"><strong>弱勢:</strong> 每回合自動扣 5 MWP</li>
+                    </ul>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-2 rounded-lg pointer-events-none">加入此角色</button>
+                </div>
+                <!-- Role 3 -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-transparent hover:border-indigo-400 cursor-pointer transition" onclick="joinPlayer('teenager')">
+                    <div class="text-4xl mb-4 text-center">🎓</div>
+                    <h3 class="text-xl font-bold text-center mb-2">當代青少年</h3>
+                    <ul class="text-sm text-gray-600 space-y-2 mb-4">
+                        <li><strong>初始 MWP:</strong> 50</li>
+                        <li><strong>防護罩:</strong> 1</li>
+                        <li class="text-red-500"><strong>弱勢:</strong> 社群事件扣血加倍</li>
+                    </ul>
+                    <button class="w-full bg-indigo-100 text-indigo-700 font-semibold py-2 rounded-lg pointer-events-none">加入此角色</button>
+                </div>
+            </div>
+
+            <!-- Joined Players List -->
+            <div class="w-full max-w-2xl bg-white p-6 rounded-xl shadow-md border-t-4 border-indigo-500">
+                <h3 class="font-bold text-lg mb-4 text-center">已加入的玩家</h3>
+                <div id="joined-players-list" class="flex flex-col gap-2 mb-4 min-h-[50px] justify-center items-center text-gray-500">
+                    尚無玩家加入
+                </div>
+                <button id="btn-start-game" onclick="startMultiplayerGame()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition hidden disabled:opacity-50">
+                    開始遊戲
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Main Game Board -->
+        <div id="screen-game" class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8 hidden-screen fade-in">
+            
+            <!-- Left Panel: Stats & Controls -->
+            <div class="lg:w-1/3 flex flex-col gap-4">
+                <!-- Players Stats Container -->
+                <div id="players-stats-container" class="flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
+                    <!-- Cards generated by JS -->
+                </div>
+
+                <!-- Dice Panel -->
+                <div class="bg-white p-5 rounded-xl shadow-md text-center flex-1 flex flex-col justify-center border-2 border-indigo-200 relative overflow-hidden">
+                    <div id="current-turn-indicator" class="bg-indigo-600 text-white absolute top-0 left-0 w-full py-1 text-sm font-bold shadow">
+                        現在輪到：P1
+                    </div>
+                    <div id="dice-display" class="text-6xl mt-6 mb-4 h-20 flex items-center justify-center font-bold text-gray-700">🎲</div>
+                    <button id="btn-roll" onclick="rollDice()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform transition active:scale-95 w-full text-lg">
+                        玩家擲骰子前進
+                    </button>
+                    <p class="text-xs text-gray-400 mt-3">當 MWP 低於 40 將觸發危機挑戰</p>
+                </div>
+            </div>
+
+            <!-- Right Panel: Board & Log -->
+            <div class="lg:w-2/3 flex flex-col gap-4">
+                
+                <!-- Board -->
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <div class="board-grid" id="board-container">
+                        <!-- Tiles are generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="bg-gray-800 text-green-400 p-4 rounded-xl shadow-md h-40 overflow-y-auto font-mono text-sm" id="event-log">
+                    <div>> 系統啟動，等待選擇角色...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Events / Crisis -->
+    <div id="modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center hidden-screen">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all scale-100">
+            <div id="modal-icon" class="text-5xl text-center mb-4">⚠️</div>
+            <h3 id="modal-title" class="text-2xl font-bold text-center mb-2">事件標題</h3>
+            <p id="modal-desc" class="text-gray-600 text-center mb-6 leading-relaxed">事件描述敘述...</p>
+            
+            <!-- Dynamic Actions -->
+            <div id="modal-actions" class="flex flex-col gap-3">
+                <button onclick="closeModal()" class="bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 遊戲資料設定 ---
+        const roles = {
+            migrant: {
+                name: "跨國移工 / 難民",
+                icon: "🌍",
+                desc: "弱勢：語言隔閡 (醫療資源補血減半)",
+                startMWP: 50,
+                startShield: 1
+            },
+            manager: {
+                name: "高壓科技業主管",
+                icon: "💻",
+                desc: "弱勢：過勞 (每回合基礎扣 5 MWP)",
+                startMWP: 50,
+                startShield: 0
+            },
+            teenager: {
+                name: "當代青少年",
+                icon: "🎓",
+                desc: "弱勢：數位霸凌脆弱 (社群事件扣血倍增)",
+                startMWP: 50,
+                startShield: 1
+            }
+        };
+
+        const tiles = [
+            { id: 0, icon: "🚩", name: "起點", type: "start", color: "bg-gray-100" },
+            { id: 1, icon: "🌱", name: "心靈補給", type: "heal", value: 15, color: "bg-green-100 text-green-800" },
+            { id: 2, icon: "🌪️", name: "汙名化", type: "trap", value: -20, color: "bg-red-100 text-red-800" },
+            { id: 3, icon: "❓", name: "命運機會", type: "event", color: "bg-purple-100 text-purple-800" },
+            { id: 4, icon: "🌐", name: "公衛資源", type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 5, icon: "🌱", name: "心靈補給", type: "heal", value: 15, color: "bg-green-100 text-green-800" },
+            { id: 6, icon: "❓", name: "命運機會", type: "event", color: "bg-purple-100 text-purple-800" },
+            { id: 7, icon: "🌪️", name: "汙名化", type: "trap", value: -20, color: "bg-red-100 text-red-800" },
+            { id: 8, icon: "🌐", name: "公衛資源", type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 9, icon: "❓", name: "命運機會", type: "event", color: "bg-purple-100 text-purple-800" },
+            { id: 10, icon: "🌱", name: "心靈補給", type: "heal", value: 15, color: "bg-green-100 text-green-800" },
+            { id: 11, icon: "🌪️", name: "汙名化", type: "trap", value: -20, color: "bg-red-100 text-red-800" },
+            { id: 12, icon: "🌐", name: "公衛資源", type: "resource", color: "bg-blue-100 text-blue-800" },
+            { id: 13, icon: "❓", name: "命運機會", type: "event", color: "bg-purple-100 text-purple-800" },
+            { id: 14, icon: "🌪️", name: "汙名化", type: "trap", value: -20, color: "bg-red-100 text-red-800" },
+            { id: 15, icon: "🌱", name: "心靈補給", type: "heal", value: 15, color: "bg-green-100 text-green-800" }
+        ];
+
+        const events = [
+            { title: "全球通膨危機 (SDOH惡化)", desc: "受「健康社會決定因素(經濟)」影響，生活成本暴增，對未來感到絕望。", mwp: -15, type: "general" },
+            { title: "完美形象焦慮", desc: "社群網路瘋傳不切實際的標準，引發容貌焦慮。", mwp: -10, type: "social" },
+            { title: "WHO 去汙名化運動", desc: "推動全球倡議，改善社會風氣，減輕精神疾病汙名化。", mwp: 15, shield: 1, type: "general" },
+            { title: "職場/校園排擠", desc: "被貼上標籤，感受到強烈的孤立感與社會排除。", mwp: -15, type: "general" },
+            { title: "推動初段預防：社區培力", desc: "在地衛生所舉辦心理韌性(Resilience)講座，提升整體社區抗壓性。", mwp: 10, shield: 1, type: "general" },
+            { title: "醫療資源崩潰", desc: "面臨重大災難，基層心理衛生體系超載，出現嚴重的「治療缺口(Treatment Gap)」。", mwp: -20, type: "general" },
+            { title: "提升心理健康識能 (Mental Health Literacy)", desc: "社區推廣心理衛生教育，民眾更能覺察自身情緒並主動求助。", mwp: 15, type: "general" },
+            { title: "缺乏創傷知情 (Trauma-Informed)", desc: "媒體過度報導災難細節，導致具創傷經驗者引發「二度創傷 (Re-traumatization)」。", mwp: -15, type: "general" }
+        ];
+
+        // --- 狀態管理 ---
+        let state = {
+            players: [],
+            currentPlayerIndex: 0,
+            turn: 1,
+            isResolving: false
+        };
+
+        // --- 初始化與介面更新 ---
+        function joinPlayer(roleId) {
+            if (state.players.length >= 4) {
+                showModal("提示", "最多只能 4 名玩家加入喔！", [{ text: "確認", action: closeModal }]);
+                return;
+            }
+            
+            let pNum = state.players.length + 1;
+            let role = roles[roleId];
+            
+            state.players.push({
+                id: pNum,
+                roleId: roleId,
+                role: role,
+                mwp: role.startMWP,
+                maxMwp: 100,
+                shield: role.startShield,
+                pos: 0,
+                skipTurn: false
+            });
+
+            renderJoinedPlayers();
+        }
+
+        function renderJoinedPlayers() {
+            const list = document.getElementById('joined-players-list');
+            const startBtn = document.getElementById('btn-start-game');
+            
+            list.innerHTML = '';
+            
+            if (state.players.length === 0) {
+                list.innerHTML = '尚無玩家加入';
+                startBtn.classList.add('hidden');
+                return;
+            }
+
+            state.players.forEach(p => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 w-full";
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold token-${p.id}">P${p.id}</span>
+                        <span class="text-2xl">${p.role.icon}</span>
+                        <span class="font-bold">${p.role.name}</span>
+                    </div>
+                    <span class="text-sm text-gray-500">MWP: ${p.mwp}</span>
+                `;
+                list.appendChild(item);
+            });
+
+            if (state.players.length >= 1) {
+                startBtn.classList.remove('hidden');
+            }
+            if (state.players.length >= 4) {
+                document.getElementById('role-cards').classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function initBoard() {
+            const container = document.getElementById('board-container');
+            container.innerHTML = '';
+            tiles.forEach(tile => {
+                const div = document.createElement('div');
+                div.className = `tile tile-${tile.id} ${tile.color} border border-gray-200`;
+                div.innerHTML = `
+                    <span class="text-2xl">${tile.icon}</span>
+                    <span class="text-xs font-bold mt-1">${tile.name}</span>
+                    <div id="player-on-${tile.id}" class="absolute inset-0"></div>
+                `;
+                container.appendChild(div);
+            });
+            updatePlayerPos();
+        }
+
+        function startMultiplayerGame() {
+            if (state.players.length === 0) return;
+            
+            state.currentPlayerIndex = 0;
+            state.turn = 1;
+
+            // UI 隱藏/顯示
+            document.getElementById('screen-role-select').classList.add('hidden-screen');
+            document.getElementById('screen-game').classList.remove('hidden-screen');
+            document.getElementById('turn-counter').classList.remove('hidden');
+
+            initBoard();
+            updateUI();
+            log(`> 遊戲開始！共 ${state.players.length} 名玩家參戰。`);
+        }
+
+        function updateUI() {
+            document.getElementById('round-num').innerText = state.turn;
+            
+            const container = document.getElementById('players-stats-container');
+            container.innerHTML = '';
+
+            state.players.forEach((p, index) => {
+                // MWP 邊界限制
+                if (p.mwp > p.maxMwp) p.mwp = p.maxMwp;
+                if (p.mwp < 0) p.mwp = 0;
+
+                const isCurrent = index === state.currentPlayerIndex;
+                const borderClass = isCurrent ? "border-l-8 border-indigo-500 transform scale-100 shadow-lg" : "border-l-4 border-gray-300 opacity-70 scale-95 shadow-sm";
+                
+                let barColor = "bg-indigo-500";
+                let textColor = "text-indigo-600";
+                if (p.mwp <= 20) { barColor = "bg-red-600"; textColor = "text-red-600"; }
+                else if (p.mwp <= 40) { barColor = "bg-yellow-500"; textColor = "text-yellow-600"; }
+
+                const card = document.createElement('div');
+                card.className = `bg-white p-4 rounded-xl transition-all duration-300 ${borderClass}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold token-${p.id}">P${p.id}</span>
+                        <div class="text-2xl">${p.role.icon}</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-sm leading-tight">${p.role.name}</h3>
+                            <div class="text-xs text-gray-500 line-clamp-1" title="${p.role.desc}">${p.role.desc}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1 text-sm">
+                            <span class="font-semibold text-gray-700">MWP</span>
+                            <span class="font-bold ${textColor}">${p.mwp} / ${p.maxMwp}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                            <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${(p.mwp / p.maxMwp) * 100}%"></div>
+                        </div>
+                        <div class="flex justify-between items-center bg-blue-50 px-2 py-1 rounded text-xs">
+                            <span class="font-semibold text-blue-800">🛡️ 防護罩</span>
+                            <span class="font-bold text-blue-600">${p.shield}</span>
+                        </div>
+                    </div>
+                    ${p.skipTurn ? `<div class="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center font-bold text-red-600 rounded-xl z-10 backdrop-blur-sm">強制休養中</div>` : ''}
+                `;
+                container.appendChild(card);
+            });
+
+            // Update Current Turn Indicator
+            const currentP = state.players[state.currentPlayerIndex];
+            const indicator = document.getElementById('current-turn-indicator');
+            indicator.innerText = `現在輪到：P${currentP.id} (${currentP.role.name})`;
+            indicator.className = `absolute top-0 left-0 w-full py-1 text-sm font-bold shadow text-white token-${currentP.id}`;
+            document.getElementById('btn-roll').innerText = `P${currentP.id} 擲骰子`;
+        }
+
+        function updatePlayerPos() {
+            // 移除舊的
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+            // 加入新的
+            state.players.forEach(p => {
+                const targetCell = document.getElementById(`player-on-${p.pos}`);
+                if (targetCell) {
+                    const token = document.createElement('div');
+                    token.className = `player-token token-${p.id}`;
+                    token.innerText = `P${p.id}`;
+                    targetCell.appendChild(token);
+                }
+            });
+        }
+
+        function log(msg) {
+            const el = document.getElementById('event-log');
+            const p = document.createElement('div');
+            p.innerText = msg;
+            el.appendChild(p);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // --- 核心遊戲邏輯 ---
+
+        function rollDice() {
+            if (state.isResolving) return;
+            const p = state.players[state.currentPlayerIndex];
+
+            if (p.mwp <= 0) {
+                showModal(`🔴 P${p.id} 精神崩潰`, "心靈能量歸零，陷入嚴重危機。必須重新尋求社區強烈介入。", [
+                    { text: "接受強制休養 (跳過下回合並恢復 30 MWP)", action: () => { p.mwp = 30; p.skipTurn = true; closeModal(); finishTurn(true); } }
+                ]);
+                return;
+            }
+
+            state.isResolving = true;
+            document.getElementById('btn-roll').disabled = true;
+            document.getElementById('btn-roll').classList.add('opacity-50');
+            
+            let roll = 0;
+            let diceAnim = setInterval(() => {
+                roll = Math.floor(Math.random() * 6) + 1;
+                document.getElementById('dice-display').innerText = `🎲 ${roll}`;
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(diceAnim);
+                log(`> P${p.id} 擲出了 ${roll}`);
+                
+                // 處理主管回合被動扣血
+                if (p.roleId === 'manager') {
+                    p.mwp -= 5;
+                    log(`> [過勞] P${p.id} 回合自動消耗 5 MWP`);
+                }
+
+                movePlayer(roll, p);
+            }, 1000);
+        }
+
+        function movePlayer(steps, player) {
+            let currentStep = 0;
+            let moveAnim = setInterval(() => {
+                player.pos = (player.pos + 1) % tiles.length;
+                updatePlayerPos();
+                currentStep++;
+                if (currentStep >= steps) {
+                    clearInterval(moveAnim);
+                    setTimeout(() => resolveTile(tiles[player.pos], player), 300);
+                }
+            }, 300);
+        }
+
+        function resolveTile(tile, player) {
+            let title = `P${player.id} 到達：${tile.name}`;
+            let desc = "";
+            let actions = [];
+
+            if (tile.type === "heal") {
+                let healAmount = tile.value;
+                if (player.roleId === 'migrant') {
+                    healAmount = Math.floor(healAmount / 2);
+                    desc = `【語言隔閡】因無法流暢溝通，僅獲得部分心理支持。\n恢復了 ${healAmount} 點 MWP。`;
+                } else {
+                    desc = `透過韌性訓練或支持團體，心靈獲得滋養。\n恢復了 ${healAmount} 點 MWP。`;
+                }
+                player.mwp += healAmount;
+                actions = [{ text: "確認", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+                
+            } else if (tile.type === "trap") {
+                if (player.shield > 0) {
+                    player.shield--;
+                    desc = `遭遇排擠與汙名化，但利用【抗壓防護罩】抵銷了這次傷害！`;
+                } else {
+                    player.mwp += tile.value;
+                    desc = `遭遇社會排擠或被貼上標籤，內心受到創傷。\n損失了 ${Math.abs(tile.value)} 點 MWP。`;
+                }
+                actions = [{ text: "咬牙撐過", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+
+            } else if (tile.type === "event") {
+                const ev = events[Math.floor(Math.random() * events.length)];
+                title = `【命運】${ev.title}`;
+                let dmg = ev.mwp;
+                
+                if (ev.type === "social" && player.roleId === 'teenager') {
+                    dmg *= 2; 
+                    desc = `${ev.desc}\n【數位脆弱】青少年受社群影響加劇！`;
+                } else {
+                    desc = ev.desc;
+                }
+
+                if (dmg < 0 && player.shield > 0) {
+                     player.shield--;
+                     desc += `\n(防護罩啟動，抵銷了傷害！)`;
+                     dmg = 0;
+                }
+
+                if (dmg > 0) desc += `\n恢復 ${dmg} 點 MWP。`;
+                else if (dmg < 0) desc += `\n損失 ${Math.abs(dmg)} 點 MWP。`;
+
+                if (ev.shield) {
+                    player.shield += ev.shield;
+                    desc += `\n獲得 1 個防護罩。`;
+                }
+
+                player.mwp += dmg;
+                actions = [{ text: "確認", action: () => finishTurn() }];
+                showModal(title, desc, actions);
+
+            } else if (tile.type === "resource") {
+                title = `🌐 P${player.id} 連結公衛資源`;
+                desc = "來到社區心理衛生中心，請選擇採取的公衛介入策略：";
+                actions = [
+                    { 
+                        text: "【初段預防】參加社區抗壓工作坊 (+1 防護罩)", 
+                        action: () => { 
+                            player.shield++; 
+                            log(`> P${player.id} 採取初段預防，提升心理韌性。`);
+                            finishTurn(); 
+                        } 
+                    },
+                    { 
+                        text: "【次段預防】早期篩檢與心理諮商 (+20 MWP)", 
+                        action: () => { 
+                            let heal = 20;
+                            if(player.roleId === 'migrant') {
+                                heal = 10;
+                                log(`> [健康不平等] P${player.id}(移工) 因語言隔閡，次段預防效果減半。`);
+                            } else {
+                                log(`> P${player.id} 採取次段預防，緩解了症狀。`);
+                            }
+                            player.mwp += heal; 
+                            finishTurn(); 
+                        } 
+                    }
+                ];
+                showModal(title, desc, actions);
+            } else {
+                finishTurn();
+            }
+        }
+
+        function finishTurn(skipCrisis = false) {
+            closeModal();
+            updateUI();
+            
+            const p = state.players[state.currentPlayerIndex];
+            
+            // 檢查是否觸發危機機制 (PFA)
+            if (!skipCrisis && p.mwp > 0 && p.mwp <= 40) {
+                triggerCrisis(p);
+            } else {
+                nextPlayerTurn();
+            }
+        }
+
+        function nextPlayerTurn() {
+            state.currentPlayerIndex++;
+            
+            // 回合結束，換下一輪
+            if (state.currentPlayerIndex >= state.players.length) {
+                state.currentPlayerIndex = 0;
+                state.turn++;
+            }
+
+            const nextP = state.players[state.currentPlayerIndex];
+            
+            // 檢查是否處於強制休養狀態
+            if (nextP.skipTurn) {
+                nextP.skipTurn = false;
+                log(`> P${nextP.id} 正在強制休養，跳過此回合。`);
+                updateUI();
+                setTimeout(() => {
+                    nextPlayerTurn(); // 遞迴呼叫直到找到可以行動的玩家
+                }, 1000);
+                return;
+            }
+
+            // 準備下一個玩家的 UI
+            state.isResolving = false;
+            document.getElementById('btn-roll').disabled = false;
+            document.getElementById('btn-roll').classList.remove('opacity-50');
+            updateUI();
+        }
+
+        function triggerCrisis(player) {
+            let title = player.mwp <= 20 ? `🟠 P${player.id} 中度心理危機` : `🟡 P${player.id} 輕度焦慮危機`;
+            let qPool = [];
+            
+            if (player.mwp <= 20) {
+                qPool = [
+                    {
+                        desc: "你感到嚴重的無力與憂鬱傾向。請問：在台灣，當需要 24 小時心理諮詢時，應撥打哪支免費專線？",
+                        options: [
+                            { text: "1922 (防疫專線)", action: () => failCrisis(player) },
+                            { text: "119 (救護專線)", action: () => failCrisis(player) },
+                            { text: "1925 (依舊愛我安心專線)", action: () => passCrisis(player, 25) }
+                        ]
+                    },
+                    {
+                        desc: "【公衛概念題】當社區發生重大災難，公衛護理師提供受災民眾緊急心理支持與篩檢，這屬於三段預防中的哪一段？",
+                        options: [
+                            { text: "初段預防 (促進健康)", action: () => failCrisis(player) },
+                            { text: "次段預防 (早期發現與介入)", action: () => passCrisis(player, 25) },
+                            { text: "末段預防 (復健與避免失能)", action: () => failCrisis(player) }
+                        ]
+                    },
+                    {
+                        desc: "【公衛概念題】近年精神醫療強調「去機構化 (Deinstitutionalization)」，其核心理念為何？",
+                        options: [
+                            { text: "將精神病人永久隔離於大型醫院", action: () => failCrisis(player) },
+                            { text: "讓個案回歸社會，由「社區心理衛生中心」提供支持", action: () => passCrisis(player, 25) },
+                            { text: "完全取消精神科門診，全靠家屬照顧", action: () => failCrisis(player) }
+                        ]
+                    }
+                ];
+            } else {
+                qPool = [
+                    {
+                        desc: "你感到極度焦慮與耗竭。心理急救(PFA)中，協助個案連結社會資源的步驟稱為？",
+                        options: [
+                            { text: "Look (觀察)", action: () => failCrisis(player) },
+                            { text: "Listen (傾聽)", action: () => failCrisis(player) },
+                            { text: "Link (連結)", action: () => passCrisis(player, 15) }
+                        ]
+                    },
+                    {
+                        desc: "【公衛概念題】影響人類心理健康的最底層結構因素（如：收入、教育、居住環境、就業狀態），在公衛領域稱為什麼？",
+                        options: [
+                            { text: "健康社會決定因素 (SDOH)", action: () => passCrisis(player, 15) },
+                            { text: "醫療科技發展指標", action: () => failCrisis(player) },
+                            { text: "個體基因遺傳特徵", action: () => failCrisis(player) }
+                        ]
+                    },
+                    {
+                        desc: "【公衛概念題】當代公衛強調「創傷知情照護 (Trauma-Informed Care)」。其重點是將問句從「你到底有什麼問題？」轉變為何種具同理心的視角？",
+                        options: [
+                            { text: "「你為什麼不早點求救？」", action: () => failCrisis(player) },
+                            { text: "「你到底發生了什麼事？」", action: () => passCrisis(player, 15) },
+                            { text: "「你怎麼連這個都做不好？」", action: () => failCrisis(player) }
+                        ]
+                    },
+                    {
+                        desc: "【公衛概念題】在照護跨國移工或不同族群時，為了避免文化差異造成的醫療不平等，護理人員最需要具備何種能力？",
+                        options: [
+                            { text: "高科技儀器操作能力", action: () => failCrisis(player) },
+                            { text: "強勢的醫療權威態度", action: () => failCrisis(player) },
+                            { text: "文化敏感度 (Cultural Competence)", action: () => passCrisis(player, 15) }
+                        ]
+                    }
+                ];
+            }
+            
+            // 隨機挑選一題
+            let selectedQ = qPool[Math.floor(Math.random() * qPool.length)];
+            showModal(title, selectedQ.desc, selectedQ.options);
+        }
+
+        function passCrisis(player, heal) {
+            player.mwp += heal;
+            log(`> ✅ P${player.id} 正確運用公衛知識！危機解除，恢復 ${heal} MWP。`);
+            closeModal();
+            updateUI();
+            nextPlayerTurn();
+        }
+
+        function failCrisis(player) {
+            log(`> ❌ P${player.id} 求助觀念錯誤，未獲得有效資源，狀態持續低迷。`);
+            closeModal();
+            nextPlayerTurn();
+        }
+
+        // --- UI 控制 ---
+        function showModal(title, desc, actions) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            
+            const actionContainer = document.getElementById('modal-actions');
+            actionContainer.innerHTML = '';
+            
+            actions.forEach(act => {
+                const btn = document.createElement('button');
+                btn.className = "bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition w-full mb-2";
+                btn.innerText = act.text;
+                btn.onclick = act.action;
+                actionContainer.appendChild(btn);
+            });
+
+            document.getElementById('modal-overlay').classList.remove('hidden-screen');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden-screen');
+        }
+
+    </script>
+</body>
+</html>
